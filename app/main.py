@@ -2,7 +2,10 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from random import randrange
 from fastapi import status, Response, HTTPException
-
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from pydantic.networks import import_email_validator
+import time
 
 app = FastAPI()
 
@@ -12,6 +15,23 @@ class Post(BaseModel):
     content: str
     published: bool = True  # giving default value as True
     rating: int | None = None
+
+
+while True:
+    try:
+        conn = psycopg2.connect(
+            host="localhost",
+            database="fastapi",
+            user="postgres",
+            cursor_factory=RealDictCursor,
+        )
+        cur = conn.cursor()
+        print("connection was successful!")
+        break
+    except Exception as error:
+        print("Connection failier")
+        print(f"error: {error}")
+        time.sleep(3)
 
 
 my_posts = [
