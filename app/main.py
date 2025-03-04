@@ -1,10 +1,8 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from random import randrange
 from fastapi import status, Response, HTTPException
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from pydantic.networks import import_email_validator
 import time
 
 app = FastAPI()
@@ -34,12 +32,6 @@ while True:
         time.sleep(3)
 
 
-my_posts = [
-    {"title": "title of post 1", "content": "content of post 1", "id": 1},
-    {"title": "title of post 2", "content": "content of post 2", "id": 2},
-]
-
-
 @app.get("/")
 async def root():
     return {"message": "welcome to my asi!"}
@@ -47,59 +39,74 @@ async def root():
 
 @app.get("/posts")
 def get_posts():
-    return {"data": my_posts}
+    cur.execute(
+        """
+    SELECT * FROM posts
+    """
+    )
+    posts = cur.fetchall()
+    print(posts)
+    return {"data": posts}
 
 
 @app.post("/posts", status_code=status.HTTP_201_CREATED)
 def create_post(post: Post):
+    cur.execute(
+        """
+    INSERT INTO posts(title, content, published) VALUES(%s, %s, %s) RETURNING * """,
+        (post.title, post.content, post.published),
+    )
+    new_post = cur.fetchone()
+    conn.commit()
 
-    post_dict = post.model_dump()
-    post_dict["id"] = randrange(0, 10000000)
-    my_posts.append(post_dict)
-
-    return {"data": post_dict}
+    return {"data": new_post}
 
 
 @app.get("/posts/{id}")  # GET SPECIFIC POST WITH PATH PARAMETHER
-def get_posts(id: int, response=Response):
-
-    for post in my_posts:
-        if post["id"] == id:
-            return {"Retrieved Post": f"Here is your post{post}"}
-
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"post with id{id} does not exists",
+def get_posts(id: int):
+    cur.execute(
+        """
+    SELECT * FROM posts where id=%s
+    """,
+        str(id),
     )
+    post = cur.fetchone()
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"post with this {id} does not exists",
+        )
+    return post
 
 
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(id: int):
-    for p in my_posts:
-        if p["id"] == id:
-            my_posts.remove(my_posts[id - 1])
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
-        else:
 
-            raise HTTPException(
-                status_code=status.HTTP_204_NO_CONTENT,
-                detail=f"Post with this {id} does not exists",
-            )
+    cur.execute("""DELETE FROM posts WHERE id=%s RETURNING *""", (str(id)))
+    post = cur.fetchone()
+    conn.commit()
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"post with this {id} does not exists",
+        )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.put("/posts/{id}")
 def update_post(id: int, post: Post):
+    cur.execute(
+        """UPDATE posts SET title= %s, content=%s, published=%s WHERE id=%s RETURNING *""",
+        (post.title, post.content, post.published, str(id)),
+    )
+    updated_post = cur.fetchone()
+    conn.commit()
 
-    print(post.model_dump())
-    for p in my_posts:
+    if not updated_post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"post with this {id} does not exists",
+        )
 
-        if p["id"] == id:
-
-            post_dict = post.model_dump()
-            my_posts[id - 1] = post_dict
-
-            return (
-                f"Post with id {id} was successfuly updated {post.model_dump()}"
-            )
-
-        return f"Post with this id {id} does not exists "
+    return {"data": updated_post}
