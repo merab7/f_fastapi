@@ -2,9 +2,12 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.zed
+.ropepproject
 
 # C extensions
 *.so
+pyrightconfig.json
 
 # Distribution / packaging
 .Python
