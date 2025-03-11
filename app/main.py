@@ -1,9 +1,9 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from fastapi import status, Response, HTTPException
-import psycopg2
-from psycopg2.extras import RealDictCursor
 import time
+
+import psycopg2
+from fastapi import FastAPI, HTTPException, Response, status
+from psycopg2.extras import RealDictCursor
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -18,7 +18,7 @@ class Post(BaseModel):
 while True:
     try:
         conn = psycopg2.connect(
-            host="localhost",
+            hostf="localhost",
             database="fastapi",
             user="postgres",
             cursor_factory=RealDictCursor,
@@ -41,8 +41,8 @@ async def root():
 def get_posts():
     cur.execute(
         """
-    SELECT * FROM posts
-    """
+        SELECT * FROM posts
+        """
     )
     posts = cur.fetchall()
     print(posts)
@@ -63,7 +63,7 @@ def create_post(post: Post):
 
 
 @app.get("/posts/{id}")  # GET SPECIFIC POST WITH PATH PARAMETHER
-def get_posts(id: int):
+def get_post(id: int):
     cur.execute(
         """
     SELECT * FROM posts where id=%s
@@ -81,7 +81,6 @@ def get_posts(id: int):
 
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(id: int):
-
     cur.execute("""DELETE FROM posts WHERE id=%s RETURNING *""", (str(id)))
     post = cur.fetchone()
     conn.commit()
